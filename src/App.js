@@ -1,24 +1,92 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState, useRef } from "react";
+
+import { Container, Topbar, RepoList } from "./Styles/";
+
+import SearchBar from "./Components/SearchBar/";
+import Repositories from "./Components/Repositories/";
+import User from "./Components/User/";
 
 function App() {
+  const [user, setUser] = useState({
+    profile: {},
+    repos: [],
+  });
+  const [loading, setLoading] = useState(false);
+  const [isFound, setIsFound] = useState(true);
+
+  const inputEl = useRef(null);
+
+  const handleEnterKey = () => {
+    const ENTER = 13;
+    if (window.event.keyCode === ENTER) {
+      search();
+      inputEl.current.blur();
+    }
+  };
+
+  const selectText = () => {
+    inputEl.current.select();
+  };
+
+  async function getApiData() {
+    const [profile, repos] = await Promise.all([
+      fetch(`https://api.github.com/users/${inputEl.current.value}`).then(
+        (response) => response.json()
+      ),
+      fetch(`https://api.github.com/users/${inputEl.current.value}/repos`).then(
+        (response) => response.json()
+      ),
+    ]);
+
+    return { profile, repos };
+  }
+
+  async function search() {
+    setLoading(true);
+    const { profile, repos } = await getApiData();
+    setLoading(false);
+
+    if (profile.message === "Not Found") {
+      // inputEl.current.focus();
+      setIsFound(false);
+    } else {
+      setIsFound(true);
+      setUser({
+        profile,
+        repos,
+      });
+    }
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Container>
+      <Topbar>
+        <h1>GitHub Search Repository</h1>
+        <SearchBar
+          onKeyPress={handleEnterKey}
+          onFocus={selectText}
+          searchFunction={search}
+          loadingState={loading}
+          inputRef={inputEl}
+        />
+      </Topbar>
+
+      {!isFound ? <h1> Not Found </h1> : null}
+
+      {user.profile.id && (
+        <>
+          <User data={user.profile} />
+
+          <RepoList>
+            {user.repos.map((data) => (
+              <li className="repo" key={data.id}>
+                <Repositories repo={data} />
+              </li>
+            ))}
+          </RepoList>
+        </>
+      )}
+    </Container>
   );
 }
 
